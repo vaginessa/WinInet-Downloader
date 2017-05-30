@@ -1,10 +1,29 @@
 WinInet-Downloader
 ========
 
-Basic downloader with progress bar using WinInet supporting SSL (code sets flags to ignore invalid certificates which can be tweaked). File to download specified in main.c.
+Basic downloader with progress bar using WinInet supporting SSL and SHA-256 verification.
 
-downslib.c, downslib.h and wininet_defs.h together are standalone, they do not need anything from the other source files.
+Usage:  
+Downloader.exe [options] &lt;url&gt; &lt;filename&gt;
 
-Compiles to an ~8KB EXE with VS without fiddling (CRT not used).
+Available options:  
+/bubble - enables request info bubble  
+/ignore - allows user to bypass security  
+/ignore-expired  
+/ignore-wrong-host  
+/ignore-revoked  
+/ignore-untrusted-root  
+/ignore-wrong-usage  
+/passive - no user interaction  
+/passive:&lt;exit code&gt; - conditionally passive  
+/proxy-name:&lt;list of proxy servers&gt;  
+/proxy-bypass:&lt;list of hosts&gt;  
+/secure - enforces https on http URLs  
+/sha256:&lt;hash&gt; - enables sha256 verification  
+/timeout:&lt;milliseconds&gt;  
+/topmost - keeps window on top of z-order  
+/useragent:&lt;name&gt;
 
-![Screenshot](https://github.com/potmdehex/WinInet-Downloader/blob/master/screenshot.png)
+Compiles to an ~22KB EXE with VS without fiddling (CRT not used).
+
+![Screenshot](https://github.com/datadiode/WinInet-Downloader/blob/master/screenshot.png)
