@@ -1,180 +1,206 @@
-/* Created by John Åkerblom 10/26/2014 */
+/* Created by John Åkerblom 10/26/2014
+ * Forked from https://github.com/potmdehex/WinInet-Downloader by Jochen Neubeck
+ */
+#include "common.h"
+#include "resource.h"
 
-#include "downscrt.h"
+#include <wininet.h>
+#include <shlwapi.h>
 
-#include <windows.h>
-#include <commctrl.h>
+#include "downslib.h"
+#include "utilmisc.h"
 
-#define WM_USER_PROGRESS WM_USER + 1
-static HWND g_hwndDialog;
-static DWORD g_dwMainThreadId;
-
-static volatile int g_read_bytes;
-static volatile int g_total_bytes;
-
-static BOOL _CenterWindow(HWND hwnd, HWND hwnd_parent)
+static void CreateToolTip(HWND hwnd, TOOLINFO *pti)
 {
-    RECT rect, rectP;
-    int width, height;
-    int x, y;
-
-    GetWindowRect(hwnd, &rect);
-    GetWindowRect(hwnd_parent, &rectP);
-
-    width = rect.right - rect.left;
-    height = rect.bottom - rect.top;
-
-    x = ((rectP.right - rectP.left) - width) / 2 + rectP.left;
-    y = ((rectP.bottom - rectP.top) - height) / 2 + rectP.top;
-
-    MoveWindow(hwnd, x, y, width, height, FALSE);
-
-    return TRUE;
-}
-
-DWORD WINAPI SignalUpdateThreadProc(LPVOID lpParameter)
-{
-    int read_bytes = 0;
-    int total_bytes = 0;
-
-    for (;;) {
-        InterlockedExchange(&read_bytes, g_read_bytes);
-        InterlockedExchange(&total_bytes, g_total_bytes);
-
-        if (read_bytes != 0) {
-            SendMessage(g_hwndDialog, WM_USER_PROGRESS, (WPARAM)read_bytes, (LPARAM)total_bytes);
-        }
-
-        if (read_bytes != 0 && read_bytes == total_bytes) {
-            break;
-        }
-
-        Sleep(100);
-    }
-
-    ExitThread(0);
-}
-
-BOOL CALLBACK DownloadDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
-{
-    switch (msg)
+    HWND const hwndTip = CreateWindow(TOOLTIPS_CLASS, NULL,
+        WS_POPUP | TTS_ALWAYSTIP | TTS_BALLOON | TTS_NOPREFIX | TTS_NOANIMATE | TTS_NOFADE,
+        CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+        hwnd, NULL, NULL, NULL);
+    if (hwndTip)
     {
-    case WM_CLOSE:
-        DestroyWindow(hwnd);
-        PostThreadMessage(g_dwMainThreadId, WM_QUIT, 0, 0);
-        ExitProcess(0);
-        break;
-    case WM_INITDIALOG:
-        {
-            HWND progress_bar;
-            g_hwndDialog = hwnd;
-            g_dwMainThreadId = (DWORD)lParam;
-            progress_bar = FindWindowEx(hwnd, 0, PROGRESS_CLASS, NULL);
-            /* SendMessage(progress_bar, PBM_SETBARCOLOR, 0, RGB(0x8C, 0x17, 0x17)); */
+        SendMessage(hwndTip, TTM_SETMAXTIPWIDTH, 0, GetSystemMetrics(SM_CXSCREEN));
+        SendMessage(hwndTip, TTM_ADDTOOL, 0, (LPARAM)pti);
+        SendMessage(hwndTip, TTM_SETDELAYTIME, TTDT_AUTOPOP, MAKELPARAM(20000, 0));
+        SendMessage(hwndTip, TTM_SETDELAYTIME, TTDT_INITIAL, MAKELPARAM(500, 0));
+        SendMessage(hwndTip, TTM_SETDELAYTIME, TTDT_RESHOW, MAKELPARAM(500, 0));
+    }
+}
 
-            _CenterWindow(hwnd, GetDesktopWindow());
-            ShowWindow(hwnd, SW_SHOW);
+INT_PTR CALLBACK DownloadDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    enum
+    {
+        CyclicUpdateTimer = 1,
+        HideBubbleTimer = 2,
+    };
 
-            CloseHandle(CreateThread(NULL, 0, SignalUpdateThreadProc, NULL, 0, NULL));
-            /* SendMessage(FindWindowEx(hwnd, 0, PROGRESS_CLASS, NULL), PBM_SETMARQUEE, 1, 0); */
-        }
-        break;
-    case WM_USER_PROGRESS:
-        {
-            char new_title[128];
-            char new_static[128];
-            char read_str[128];
-            char total_str[128];
-            char percent_str[128];
-            int read_bytes = (int)wParam;
-            int total_bytes = (int)lParam;
-            unsigned int percent = -1;
-            static unsigned int old_percent;
-            static BOOL has_set_marquee;
-            LONG_PTR style = 0;
-            /* If we have a total byte count we can calculate percent */
-            if (total_bytes > 0) {
-                percent = downs_fltoui((((float)read_bytes / (float)total_bytes) * (float)100));
-            }
+    struct downslib_download volatile *const param =
+        (struct downslib_download volatile*)GetWindowLongPtr(hwnd, DWLP_USER);
 
-            downs_memset(new_title, 0, sizeof(new_title));
-            downs_memset(new_static, 0, sizeof(new_static));
-            downs_memset(percent_str, 0, sizeof(percent_str));
-            downs_memset(read_str, 0, sizeof(read_str));
-            downs_memset(total_str, 0, sizeof(total_str));
-            
-            downs_itoa(percent, percent_str, 10);
-            downs_itoa(read_bytes / 1000, read_str, 10);
-            if (total_bytes > 0) {
-                downs_itoa(total_bytes / 1000, total_str, 10);
-            }
-            else {
-                lstrcpyA(total_str, "? ");
-            }
-            
-            lstrcpyA(new_title, percent_str);
-            lstrcatA(new_title, "%");
+    switch (msg)
+    {{
+    case(:WM_INITDIALOG:)
+        HINSTANCE const hInstance = GetModuleHandle(NULL);
+        HICON const hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDR_DOWNLOAD));
+        SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+        SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
+        SetWindowLongPtr(hwnd, DWLP_USER, lParam);
+        ShowWindow(hwnd, SW_SHOW);
+        SetTimer(hwnd, CyclicUpdateTimer, 1000, NULL);
+        return TRUE;
 
-            lstrcpyA(new_static, read_str);
-            lstrcatA(new_static, "/");
-            lstrcatA(new_static, total_str);
-            lstrcatA(new_static, " KB");
+    case(:WM_TIMER:)
+        HWND const hwndPB = GetDlgItem(hwnd, IDC_PROGRESS);
+        switch (wParam)
+        {{
+        case(:CyclicUpdateTimer:)
+            DECIMAL a, b;
+            LONGLONG const read_bytes = InterlockedCompareExchange64(&param->read_bytes, 0, 0);
+            LONGLONG const total_bytes = InterlockedCompareExchange64(&param->total_bytes, 0, 0);
+            LONG permyriad;
+            LONG const style = GetWindowLong(hwndPB, GWL_STYLE);
 
-            SetWindowTextA(FindWindowExA(hwnd, 0, "STATIC", NULL), new_static);
-
-            HWND hwndPB = FindWindowExA(hwnd, 0, PROGRESS_CLASSA, NULL);
-            if (read_bytes != 0 && total_bytes == read_bytes) { /* Complete */
-                SetDlgItemTextW(hwnd, IDCANCEL, L"Close");
-                SetWindowTextA(hwnd, "100%");
-                SetWindowLongPtr(GetDlgItem(hwnd, IDCANCEL), IDCANCEL, IDCLOSE);
-
-                style = GetWindowLongPtr(hwndPB, GWL_STYLE);
-                style &= ~PBS_MARQUEE;
-                SetWindowLongPtr(hwndPB, GWL_STYLE, style);
-
-                SendMessage(hwndPB, PBM_SETPOS, 100, 0);
-            }
-            else if (percent != -1 && percent != 0 && percent != old_percent) { /* Percentage bar */
-                old_percent = percent;
-
-                SendMessage(hwndPB, PBM_SETPOS, percent, 0);
-                SetWindowTextA(hwnd, new_title);
-            }
-            else if (percent == -1) { /* Marquee bar */
-                /* First time we are here, set marquee style now */
-                if (has_set_marquee == FALSE) {
-                    style = GetWindowLongPtr(hwndPB, GWL_STYLE);
-                    style |= PBS_MARQUEE;
-                    SetWindowLongPtr(hwndPB, GWL_STYLE, style);
-                    has_set_marquee = FALSE;
+            /* If we have a total byte count we can calculate permyriad */
+            if (total_bytes == 0 ||
+                FAILED(VarDecFromI4(10000, &a)) ||
+                FAILED(VarDecFromI8(read_bytes, &b)) ||
+                FAILED(VarDecMul(&b, &a, &a)) ||
+                FAILED(VarDecFromI8(total_bytes, &b)) ||
+                FAILED(VarDecDiv(&a, &b, &a)) ||
+                FAILED(VarI4FromDec(&a, &permyriad)))
+            {
+                if ((style & PBS_MARQUEE) == 0)
+                {
+                    SetWindowLong(hwndPB, GWL_STYLE, style | PBS_MARQUEE);
+                    SendMessage(hwndPB, PBM_SETMARQUEE, 1, 0);
                 }
-
-                SendMessage(FindWindowEx(hwnd, 0, PROGRESS_CLASS, NULL), PBM_DELTAPOS, 1, 0);
+                permyriad = -1;
             }
-        }
+            else
+            {
+                if ((style & PBS_MARQUEE) != 0)
+                {
+                    SendMessage(hwndPB, PBM_SETMARQUEE, 0, 0);
+                    SetWindowLong(hwndPB, GWL_STYLE, style & ~PBS_MARQUEE);
+                    SendMessage(hwndPB, PBM_SETRANGE32, 0, 10000);
+                }
+                SendMessage(hwndPB, PBM_SETPOS, permyriad, 0);
+            }
+
+            if (param->ok_cancel_close)
+            {
+                TCHAR text[1024];
+                LPTSTR p = text;
+                p += lstrlen(StrFormatKBSize(read_bytes, p, 40));
+                if (total_bytes)
+                {
+                    static TCHAR const sep[] = TEXT(" / ");
+                    p = lstrcpy(p, sep) + _countof(sep) - 1;
+                    StrFormatKBSize(total_bytes, p, 40);
+                }
+                SetDlgItemText(hwnd, IDC_KILOBYTES, text);
+                p = text;
+                p += wnsprintf(p, 20, TEXT("[%d %s]"), param->status_code, param->status_text);
+                if (permyriad != -1)
+                {
+                    p += wnsprintf(p, 20, TEXT(" - %d%%"), permyriad / 100);
+                }
+                if (param->ok_cancel_close == IDCLOSE)
+                {
+                    UINT const exit_code = GetDlgItemInt(hwnd, IDC_PROGRESS, NULL, FALSE);
+                    HWND const hwndCancel = GetDlgItem(hwnd, IDCANCEL);
+                    SetWindowText(hwndCancel, TEXT("Close"));
+                    SetWindowLongPtr(hwndCancel, GWLP_ID, IDCLOSE);
+                    KillTimer(hwnd, wParam);
+                    if (exit_code != 0)
+                    {
+                        TCHAR buffer[256];
+                        LoadString(NULL, exit_code, buffer, _countof(buffer));
+                        wnsprintf(p, 40, TEXT(" - #%d %s"), exit_code, buffer);
+                    }
+                }
+                else
+                {
+                    int ticks = GetTickCount() - param->started;
+                    LPCTSTR unit = TEXT("hours");
+                    LPCTSTR kind = TEXT("left");
+                    static TCHAR const sep[] = TEXT(" - ");
+                    LPTSTR const t = p = lstrcpy(p, sep) + _countof(sep) - 1;
+                    if (permyriad > 0 && ticks > 5000)
+                        ticks = MulDiv(10000 - permyriad, ticks, permyriad);
+                    else
+                        kind = TEXT("elapsed");
+                    if (ticks >= 3600000)
+                        p += wnsprintf(p, 20, TEXT("%d:"), ticks / 3600000);
+                    else
+                        unit = TEXT("minutes");
+                    if (ticks >= 60000)
+                        p += wnsprintf(p, 20, TEXT("%02d:"), ticks / 60000 % 60);
+                    else
+                        unit = TEXT("seconds");
+                    wnsprintf(p, 40, TEXT("%02d %s %s"), ticks / 1000 % 60, unit, kind);
+                    /* Remove leading zeros from most significant part */
+                    StrTrim(StrToInt(t) ? t : t + 1, TEXT("0"));
+                }
+                SetWindowText(hwnd, text);
+                if (param->headers[0] != TEXT('\0'))
+                {
+                    TOOLINFO ti;
+                    SecureZeroMemory(&ti, sizeof ti);
+                    ti.cbSize = sizeof ti;
+                    ti.hwnd = hwnd;
+                    ti.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
+                    ti.uId = (UINT_PTR)hwndPB;
+                    ti.lpszText = const_cast(LPTSTR, param->headers);
+                    StrTrim(ti.lpszText, TEXT("\r\n"));
+                    CreateToolTip(hwnd, &ti);
+                    param->headers[0] = TEXT('\0');
+                }
+            }
+            return TRUE;
+
+        case(:HideBubbleTimer:)
+            /* Cause bubble to hide and stay away until next WM_SETCURSOR */
+            EnableWindow(hwndPB, FALSE);
+            KillTimer(hwnd, wParam);
+            return TRUE;
+        }}
         break;
-    case WM_COMMAND:
-        switch (LOWORD(wParam))
+
+    case(:WM_SETCURSOR:)
+        /* Allow bubble to show up again */
+        HWND const hwndPB = GetDlgItem(hwnd, IDC_PROGRESS);
+        EnableWindow(hwndPB, TRUE);
+        break;
+
+    case(:WM_COMMAND:)
+        switch (wParam)
         {
         case IDCANCEL:
         case IDCLOSE:
-            PostThreadMessage(g_dwMainThreadId, WM_QUIT, 0, 0);
-            ExitProcess(0);
+            param->ok_cancel_close = (int)wParam;
+            DestroyWindow(hwnd);
             break;
         }
+        return TRUE;
+
+    case(:WM_NOTIFY:)
+        NMHDR *const pnm = (NMHDR *)lParam;
+        switch (pnm->code)
+        {{
+        case(:TTN_SHOW:)
+            /* Be sure to hide bubble before TTDT_AUTOPOP expires (for XP) */
+            SetTimer(hwnd, HideBubbleTimer, 10000, NULL);
+            break;
+        }}
+        return TRUE;
+
+    case(:WM_DESTROY:)
+        PostQuitMessage(0);
         break;
-    default:
-        return FALSE;
-    }
 
-    return TRUE;
+    default(:)
+        break;
+    }}
+    return FALSE;
 }
-
-int update_dialog_cb(int read_bytes, int total_bytes)
-{
-    InterlockedExchange(&g_read_bytes, read_bytes);
-    InterlockedExchange(&g_total_bytes, total_bytes);
-
-    return 0;
-}
-

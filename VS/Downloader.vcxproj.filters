@@ -18,16 +18,13 @@
     <ClCompile Include="..\dialog.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\downscrt.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\downslib.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\dyn_comctl.c">
+    <ClCompile Include="..\main.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\main.c">
+    <ClCompile Include="..\sha256.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -35,19 +32,19 @@
     <ClInclude Include="..\dialog.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\downscrt.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\downslib.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\dyn_comctl.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\wininet_defs.h">
+    <ClInclude Include="..\utilmisc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\sha256.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
