@@ -184,5 +184,6 @@ static DWORD Run(LPTSTR p)
 
 int WINAPI WinMainCRTStartup()
 {
+    __security_init_cookie();
     ExitProcess(Run(GetCommandLine()));
 }
