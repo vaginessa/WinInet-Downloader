@@ -10,6 +10,7 @@
 #include "downslib.h"
 #include "utilmisc.h"
 #include "dialog.h"
+#include "findhta.h"
 
 static TCHAR const apptitle[] = TEXT("Downloader v1.0");
 
@@ -18,6 +19,7 @@ static char const usage[] =
     "\n"
     "Available options:\n"
     "/bubble - enables request info bubble\n"
+    "/hta:<name> - establishes hta as modal owner\n"
     "/ignore - allows user to bypass security\n"
     "/ignore-expired\n"
     "/ignore-wrong-host\n"
@@ -34,6 +36,17 @@ static char const usage[] =
     "/topmost - keeps window on top of z-order\n"
     "/useragent:<name>\n";
 
+static HWND FindHTAWrapper(LPCWSTR name)
+{
+    HWND hwnd = NULL;
+    if (SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE)))
+    {
+        hwnd = FindHTA(name);
+        CoUninitialize();
+    }
+    return hwnd;
+}
+
 static LPCTSTR EatPrefixAndUnquote(LPTSTR text, LPCTSTR prefix)
 {
     int len = lstrlen(prefix);
@@ -48,6 +61,7 @@ static DWORD Run(LPTSTR p)
 {
     DWORD ret = 255;
     HWND top = HWND_TOP;
+    HWND owner = NULL;
     DWORD passive = 0;
     HANDLE thread = NULL;
     struct downslib_download tp;
@@ -73,6 +87,8 @@ static DWORD Run(LPTSTR p)
             PathUnquoteSpaces(argv[argc++] = p);
         else if (lstrcmpi(t, TEXT("topmost")) == 0)
             top = HWND_TOPMOST;
+        else if ((r = EatPrefixAndUnquote(t, TEXT("hta:"))) != NULL)
+            owner = FindHTAWrapper(r);
         else if (lstrcmpi(t, TEXT("bubble")) == 0)
             tp.hflags |= HTTP_QUERY_RAW_HEADERS_CRLF | HTTP_QUERY_FLAG_REQUEST_HEADERS;
         else if (lstrcmpi(t, TEXT("secure")) == 0)
@@ -133,7 +149,7 @@ static DWORD Run(LPTSTR p)
         return ret;
     }
 
-    tp.hwnd = CreateDialogParamW(NULL, MAKEINTRESOURCEW(IDR_DOWNLOAD), NULL, DownloadDlgProc, (LPARAM)&tp);
+    tp.hwnd = CreateDialogParamW(NULL, MAKEINTRESOURCEW(IDR_DOWNLOAD), owner, DownloadDlgProc, (LPARAM)&tp);
     SetWindowPos(tp.hwnd, top, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 
     tp.url = argv[1];

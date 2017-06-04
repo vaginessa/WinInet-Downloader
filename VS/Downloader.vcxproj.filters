@@ -27,6 +27,9 @@
     <ClCompile Include="..\sha256.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\findhta.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\dialog.h">
@@ -45,6 +48,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\findhta.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

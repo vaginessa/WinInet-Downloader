@@ -49,6 +49,32 @@ INT_PTR CALLBACK DownloadDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         SetTimer(hwnd, CyclicUpdateTimer, 1000, NULL);
         return TRUE;
 
+    case(:WM_WINDOWPOSCHANGING:)
+        WINDOWPOS *pParam = (WINDOWPOS *)lParam;
+        if (pParam->flags & (SWP_SHOWWINDOW | SWP_HIDEWINDOW))
+        {
+            HWND parent = GetParent(hwnd);
+            if (parent)
+            {
+                BOOL enable = TRUE;
+                if (pParam->flags & SWP_SHOWWINDOW)
+                {
+                    /* Center the dialog over the parent */
+                    RECT rect;
+                    GetWindowRect(hwnd, &rect);
+                    pParam->cx = rect.right - rect.left;
+                    pParam->cy = rect.bottom - rect.top;
+                    GetWindowRect(parent, &rect);
+                    pParam->x = (rect.right + rect.left - pParam->cx) / 2;
+                    pParam->y = (rect.bottom + rect.top - pParam->cy) / 2;
+                    pParam->flags &= ~SWP_NOMOVE;
+                    enable = FALSE;
+                }
+                EnableWindow(parent, enable);
+            }
+        }
+        break;
+
     case(:WM_TIMER:)
         HWND const hwndPB = GetDlgItem(hwnd, IDC_PROGRESS);
         switch (wParam)
