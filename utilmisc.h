@@ -37,7 +37,7 @@ DECLSPEC_IMPORT ULONG DbgPrint(PCSTR, ...); /* from ntdll.lib */
 #endif
 
 /* A const_cast for C */
-#define const_cast(type, expr) ((type)(expr) - (expr), (type)(expr))
+#define const_cast(type, expr) (sizeof((type)(expr) - (expr)), (type)(expr))
 
 /* A syntax for automatic nested block scopes in switch statements, like so:
  *
