@@ -8,6 +8,7 @@ Downloader.exe [options] &lt;url&gt; &lt;filename&gt;
 
 Available options:  
 /bubble - enables request info bubble  
+/hta:&lt;name&gt; - establishes hta as modal owner  
 /ignore - allows user to bypass security  
 /ignore-expired  
 /ignore-wrong-host  
@@ -24,6 +25,6 @@ Available options:
 /topmost - keeps window on top of z-order  
 /useragent:&lt;name&gt;
 
-Compiles to an ~22KB EXE with VS without fiddling (CRT not used).
+Compiles to an ~25KB EXE with VS without fiddling (CRT not used).
 
 ![Screenshot](https://github.com/datadiode/WinInet-Downloader/blob/master/screenshot.png)
