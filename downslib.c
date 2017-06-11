@@ -202,11 +202,15 @@ DWORD WINAPI downslib_download(struct downslib_download volatile *param)
     }
     param->started = GetTickCount();
     /* Indicate to UI thread that it is OK to access the summary information */
-    param->ok_cancel_close = IDOK;
+    InterlockedCompareExchange(&param->ok_cancel_close, IDOK, 0);
     /* Create output file */
     hFile = CreateFile(param->filename, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
     if (hFile == NULL) {
         goto(failed_at_create_file);
+    }
+    /* Catch an early cancel before reading more data from server */
+    if (param->ok_cancel_close == IDCANCEL) {
+        goto(download_canceled);
     }
     /* Initialize hash state */
     if (param->sha256) {

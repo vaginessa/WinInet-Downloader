@@ -33,8 +33,8 @@ struct downslib_download
     DWORD timeout;
     LONGLONG read_bytes;
     LONGLONG total_bytes;
-    int ok_cancel_close;
-    int status_code;
+    LONG ok_cancel_close;
+    LONG status_code;
     DWORD started;
     /* Assume the RFC-recommended reason phrases, or else accept truncation */
     TCHAR status_text[sizeof "Requested range not satisfiable"]; /* i.e. 32 */
