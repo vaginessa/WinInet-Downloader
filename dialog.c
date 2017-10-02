@@ -42,6 +42,8 @@ INT_PTR CALLBACK DownloadDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
     case(:WM_INITDIALOG:)
         HINSTANCE const hInstance = GetModuleHandle(NULL);
         HICON const hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDR_DOWNLOAD));
+        HWND const hwndPB = GetDlgItem(hwnd, IDC_PROGRESS);
+        SendMessage(hwndPB, PBM_SETMARQUEE, 1, 0);
         SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
         SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
         SetWindowLongPtr(hwnd, DWLP_USER, lParam);

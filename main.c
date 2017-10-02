@@ -12,7 +12,7 @@
 #include "dialog.h"
 #include "findhta.h"
 
-static TCHAR const apptitle[] = TEXT("Downloader v1.1");
+static TCHAR const apptitle[] = TEXT("Downloader v1.2");
 
 static char const usage[] =
     " [options] <url> <filename>\n"
